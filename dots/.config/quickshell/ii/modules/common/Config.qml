@@ -669,9 +669,9 @@ Singleton {
                         property int columns: 5
                         property list<var> toggles: [
                             { "size": 2, "type": "network" },
+                            { "size": 2, "type": "bluetooth" },
                             { "size": 1, "type": "idleInhibitor"  },
                             { "size": 2, "type": "darkMode" },
-                            { "size": 1, "type": "mic" },
                             { "size": 2, "type": "audio" },
                             { "size": 2, "type": "nightLight" }
                         ]
@@ -680,7 +680,7 @@ Singleton {
 
                 property JsonObject quickSliders: JsonObject {
                     property bool enable: true
-                    property bool showMic: true
+                    property bool showMic: false
                     property bool showVolume: true
                     property bool showBrightness: true
                 }
