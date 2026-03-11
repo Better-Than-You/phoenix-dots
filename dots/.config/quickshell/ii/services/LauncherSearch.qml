@@ -193,13 +193,24 @@ Singleton {
         function searchFiles(expr) {
             if (expr.length < 2) return
             fileProc.running = false;
-            fileProc.command = ["fd", "--max-results", "50", expr, Config.options.search.fileSearchDirectory];
+            // Run fd for directories and files separately, prefixing each with D: or F:
+            // This allows grouping folders separately from files in results
+            const escapedExpr = expr.replace(/'/g, "'\\''");
+            const escapedDir = Config.options.search.fileSearchDirectory.replace(/'/g, "'\\''");
+            fileProc.command = ["bash", "-c", 
+                `(fd -td --max-results 25 '${escapedExpr}' '${escapedDir}' 2>/dev/null | sed 's/^/D:/'; fd -tf --max-results 25 '${escapedExpr}' '${escapedDir}' 2>/dev/null | sed 's/^/F:/') | head -50`
+            ];
             fileProc.running = true;
         }
         stdout: StdioCollector {
             onStreamFinished: {
                 const rawResult = text
-                const result = rawResult.split('\n').filter(line => line.length > 0)
+                const result = rawResult.split('\n').filter(line => line.length > 0).map(line => {
+                    // Parse type prefix (D: or F:) and path
+                    const isDir = line.startsWith('D:');
+                    const path = line.slice(2); // Remove D: or F: prefix
+                    return { path: path, isDirectory: isDir };
+                });
                 root.fileResults = result
             }
         }
@@ -267,23 +278,38 @@ Singleton {
                 });
             }).filter(Boolean);
         } else if (root.query.startsWith(Config.options.search.prefix.fileSearch)) {
-            // File search
-            return root.fileResults.map(entry => {
-                const lastSlash = entry.lastIndexOf('/');
-                const fileName = lastSlash >= 0 ? entry.slice(lastSlash + 1) : entry;
-                const folderPath = lastSlash >= 0 ? entry.slice(0, lastSlash) : '';
+            // File search - group folders first, then files
+            const folders = root.fileResults.filter(entry => entry.isDirectory);
+            const files = root.fileResults.filter(entry => !entry.isDirectory);
+            
+            const mapEntry = (entry, isFolder) => {
+                // Remove trailing slash if present (fd -td may add them)
+                let path = entry.path;
+                if (path.endsWith('/')) path = path.slice(0, -1);
+                const lastSlash = path.lastIndexOf('/');
+                const fileName = lastSlash >= 0 ? path.slice(lastSlash + 1) : path;
+                const folderPath = lastSlash >= 0 ? path.slice(0, lastSlash) : '';
                 return resultComp.createObject(null, {
-                    type: Translation.tr("File"),
+                    type: isFolder ? Translation.tr("Folder") : Translation.tr("File"),
                     name: fileName,
                     subtitle: folderPath,
-                    rawValue: entry,
+                    rawValue: path,
                     verb: Translation.tr("Open"),
-                    iconName: 'file_open',
+                    iconName: isFolder ? 'folder' : 'file_open',
                     iconType: LauncherSearchResult.IconType.Material,
                     execute: () => {
-                        Quickshell.execDetached(["xdg-open", entry]);
+                        Quickshell.execDetached(["xdg-open", path]);
                     },
-                    actions: [
+                    actions: isFolder ? [
+                        {
+                            name: Translation.tr("Open in terminal"),
+                            iconName: "terminal",
+                            iconType: LauncherSearchResult.IconType.Material,
+                            execute: () => {
+                                Quickshell.execDetached([Config.options.apps.terminal, "--working-directory", path]);
+                            }
+                        }
+                    ] : [
                         {
                             name: Translation.tr("Open location"),
                             iconName: "folder_open",
@@ -294,7 +320,10 @@ Singleton {
                         }
                     ]
                 });
-            });
+            };
+            
+            // Return folders first, then files
+            return [...folders.map(e => mapEntry(e, true)), ...files.map(e => mapEntry(e, false))];
         }
 
         ////////////////// Init ///////////////////

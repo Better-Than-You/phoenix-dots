@@ -32,7 +32,16 @@ RippleButton {
     property string itemClickActionName: entry?.verb ?? "Open"
     property string bigText: entry?.iconType === LauncherSearchResult.IconType.Text ? entry?.iconName ?? "" : ""
     property string materialSymbol: entry.iconType === LauncherSearchResult.IconType.Material ? entry?.iconName ?? "" : ""
-    property string cliphistRawString: entry?.rawValue ?? ""
+    property string cliphistRawString: {
+        // Only set for clipboard entries, not file search results
+        const raw = entry?.rawValue ?? "";
+        const type = entry?.type ?? "";
+        // Check if this is a clipboard entry (starts with #number)
+        if (raw && /^#\d+/.test(type)) {
+            return raw;
+        }
+        return "";
+    }
     property string filePath: {
         // For file search results, rawValue contains full path
         const raw = entry?.rawValue ?? "";

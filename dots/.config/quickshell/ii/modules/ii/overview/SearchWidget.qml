@@ -21,7 +21,8 @@ Item { // Wrapper
 
     property string searchingText: LauncherSearch.query
     property bool showResults: searchingText != ""
-    property string overviewPosition: "top" // REALLYFIXME: a fallback value for now, its not used anymore 
+    property string overviewPosition: "top" // REALLYFIXME: a fallback value for now, its not used anymore
+    property bool isFileSearchMode: searchingText.startsWith(Config.options.search.prefix.fileSearch) 
     implicitWidth: searchWidgetContent.implicitWidth + Appearance.sizes.elevationMargin * 2
     implicitHeight: searchWidgetContent.implicitHeight + searchBar.verticalPadding * 2 + Appearance.sizes.elevationMargin * 2
 
@@ -153,9 +154,9 @@ Item { // Wrapper
                 Layout.row: 1
             }
 
-            ListView { // App results
+            ListView { // App results - single column (non-file search)
                 id: appResults
-                visible: root.showResults
+                visible: root.showResults && !root.isFileSearchMode
                 Layout.fillWidth: true
                 implicitHeight: Math.min(600, appResults.contentHeight + topMargin + bottomMargin)
                 clip: true
@@ -219,6 +220,144 @@ Item { // Wrapper
                             searchBar.searchInput.text = tabbedText;
                             event.accepted = true;
                             root.focusSearchInput();
+                        }
+                    }
+                }
+            }
+
+            // Two-column layout for file search
+            RowLayout {
+                id: fileSearchColumns
+                visible: root.showResults && root.isFileSearchMode
+                Layout.fillWidth: true
+                Layout.row: root.overviewPosition == "bottom" ? 0 : 2
+                spacing: 1
+
+                // Folders column
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Layout.alignment: Qt.AlignTop
+                    spacing: 0
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 28
+                        color: "transparent"
+                        Text {
+                            anchors.centerIn: parent
+                            text: Translation.tr("Folders")
+                            color: Appearance.colors.colOnSurfaceVariant
+                            font.pixelSize: Appearance.font.pixelSize.small
+                            font.weight: Font.Medium
+                        }
+                    }
+
+                    ListView {
+                        id: folderResults
+                        Layout.fillWidth: true
+                        Layout.preferredWidth: 400
+                        implicitHeight: Math.min(400, folderResults.contentHeight + topMargin + bottomMargin)
+                        clip: true
+                        topMargin: 4
+                        bottomMargin: 10
+                        spacing: 2
+                        interactive: true
+                        currentIndex: -1
+                        highlightFollowsCurrentItem: true
+                        highlightMoveDuration: 100
+
+                        model: ScriptModel {
+                            id: folderModel
+                            objectProp: "key"
+                        }
+
+                        delegate: SearchItem {
+                            id: folderItem
+                            required property var modelData
+                            anchors.left: parent?.left
+                            anchors.right: parent?.right
+                            entry: modelData
+                            query: StringUtils.cleanPrefix(root.searchingText, Config.options.search.prefix.fileSearch)
+                        }
+                    }
+                }
+
+                // Separator
+                Rectangle {
+                    Layout.fillHeight: true
+                    width: 1
+                    color: Appearance.colors.colOutlineVariant
+                }
+
+                // Files column
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Layout.alignment: Qt.AlignTop
+                    spacing: 0
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 28
+                        color: "transparent"
+                        Text {
+                            anchors.centerIn: parent
+                            text: Translation.tr("Files")
+                            color: Appearance.colors.colOnSurfaceVariant
+                            font.pixelSize: Appearance.font.pixelSize.small
+                            font.weight: Font.Medium
+                        }
+                    }
+
+                    ListView {
+                        id: fileResults
+                        Layout.fillWidth: true
+                        Layout.preferredWidth: 400
+                        implicitHeight: Math.min(400, fileResults.contentHeight + topMargin + bottomMargin)
+                        clip: true
+                        topMargin: 4
+                        bottomMargin: 10
+                        spacing: 2
+                        interactive: true
+                        currentIndex: -1
+                        highlightFollowsCurrentItem: true
+                        highlightMoveDuration: 100
+
+                        model: ScriptModel {
+                            id: fileModel
+                            objectProp: "key"
+                        }
+
+                        delegate: SearchItem {
+                            id: fileItem
+                            required property var modelData
+                            anchors.left: parent?.left
+                            anchors.right: parent?.right
+                            entry: modelData
+                            query: StringUtils.cleanPrefix(root.searchingText, Config.options.search.prefix.fileSearch)
+                        }
+                    }
+                }
+
+                // Update file search models when results change
+                Connections {
+                    target: LauncherSearch
+                    function onResultsChanged() {
+                        if (root.isFileSearchMode) {
+                            const allResults = LauncherSearch.results ?? [];
+                            // Filter by checking the iconName property
+                            const folders = [];
+                            const files = [];
+                            for (const r of allResults) {
+                                if (r && r.iconName === "folder") {
+                                    folders.push(r);
+                                } else if (r && r.iconName === "file_open") {
+                                    files.push(r);
+                                }
+                            }
+                            folderModel.values = folders;
+                            fileModel.values = files;
                         }
                     }
                 }
