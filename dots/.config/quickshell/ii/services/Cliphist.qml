@@ -16,6 +16,8 @@ Singleton {
     property bool sloppySearch: Config.options?.search.sloppy ?? false
     property real scoreThreshold: 0.2
     property list<string> entries: []
+    property list<string> pinnedEntries: []
+    property list<string> deleteQueue: []
     readonly property var preparedEntries: entries.map(a => ({
         name: Fuzzy.prepare(`${a.replace(/^\s*\S+\s+/, "")}`),
         entry: a
@@ -46,6 +48,22 @@ Singleton {
         return !!(/^\d+\t\[\[.*binary data.*\d+x\d+.*\]\]$/.test(entry))
     }
 
+    function isPinned(entry) {
+        return root.pinnedEntries.includes(entry);
+    }
+
+    function togglePinned(entry) {
+        if (root.isPinned(entry)) {
+            root.pinnedEntries = root.pinnedEntries.filter(item => item !== entry);
+        } else {
+            root.pinnedEntries = root.pinnedEntries.concat([entry]);
+        }
+    }
+
+    function prunePinnedEntries() {
+        root.pinnedEntries = root.pinnedEntries.filter(entry => root.entries.includes(entry));
+    }
+
     function refresh() {
         readProc.buffer = []
         readProc.running = true
@@ -62,10 +80,10 @@ Singleton {
 
     function paste(entry) {
         if (root.cliphistBinary.includes("cliphist")) // Classic cliphist
-            Quickshell.execDetached(["bash", "-c", `printf '${StringUtils.shellSingleQuoteEscape(entry)}' | ${root.cliphistBinary} decode | wl-copy && wl-paste`]);
+            Quickshell.execDetached(["bash", "-c", `printf '${StringUtils.shellSingleQuoteEscape(entry)}' | ${root.cliphistBinary} decode | wl-copy && sleep ${root.pasteDelay} && ${root.pressPasteCommand}`]);
         else { // Stash
             const entryNumber = entry.split("\t")[0];
-            Quickshell.execDetached(["bash", "-c", `${root.cliphistBinary} decode ${entryNumber} | wl-copy; ${root.pressPasteCommand}`]);
+            Quickshell.execDetached(["bash", "-c", `${root.cliphistBinary} decode ${entryNumber} | wl-copy && sleep ${root.pasteDelay} && ${root.pressPasteCommand}`]);
         }
     }
 
@@ -80,22 +98,44 @@ Singleton {
         Quickshell.execDetached(["bash", "-c", pasteCommands.join(` && sleep ${root.pasteDelay} && `)]);
     }
 
+    function runDeleteQueue() {
+        if (deleteProc.running || root.deleteQueue.length === 0)
+            return;
+
+        deleteProc.entry = root.deleteQueue[0];
+        root.deleteQueue = root.deleteQueue.slice(1);
+        deleteProc.running = true;
+        deleteProc.entry = "";
+    }
+
+    function enqueueDeletes(entriesToDelete) {
+        if (!entriesToDelete || entriesToDelete.length === 0)
+            return;
+        root.deleteQueue = root.deleteQueue.concat(entriesToDelete);
+        root.runDeleteQueue();
+    }
+
     Process {
         id: deleteProc
         property string entry: ""
         command: ["bash", "-c", `echo '${StringUtils.shellSingleQuoteEscape(deleteProc.entry)}' | ${root.cliphistBinary} delete`]
-        function deleteEntry(entry) {
-            deleteProc.entry = entry;
-            deleteProc.running = true;
-            deleteProc.entry = "";
-        }
         onExited: (exitCode, exitStatus) => {
-            root.refresh();
+            if (root.deleteQueue.length > 0) {
+                root.runDeleteQueue();
+            } else {
+                root.refresh();
+            }
         }
     }
 
     function deleteEntry(entry) {
-        deleteProc.deleteEntry(entry);
+        root.pinnedEntries = root.pinnedEntries.filter(item => item !== entry);
+        root.enqueueDeletes([entry]);
+    }
+
+    function clearUnpinned() {
+        const entriesToDelete = root.entries.filter(entry => !root.isPinned(entry));
+        root.enqueueDeletes(entriesToDelete);
     }
 
     Process {
@@ -107,6 +147,7 @@ Singleton {
     }
 
     function wipe() {
+        root.pinnedEntries = [];
         wipeProc.running = true;
     }
 
@@ -141,6 +182,7 @@ Singleton {
         onExited: (exitCode, exitStatus) => {
             if (exitCode === 0) {
                 root.entries = readProc.buffer
+                root.prunePinnedEntries();
             } else {
                 console.error("[Cliphist] Failed to refresh with code", exitCode, "and status", exitStatus)
             }

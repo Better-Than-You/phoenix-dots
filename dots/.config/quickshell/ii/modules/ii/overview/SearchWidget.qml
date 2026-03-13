@@ -23,6 +23,15 @@ Item { // Wrapper
     property bool showResults: searchingText != ""
     property string overviewPosition: "top" // REALLYFIXME: a fallback value for now, its not used anymore
     property bool isFileSearchMode: searchingText.startsWith(Config.options.search.prefix.fileSearch) 
+    property bool isClipboardMode: searchingText.startsWith(Config.options.search.prefix.clipboard)
+    readonly property string selectedClipboardRawEntry: {
+        const selectedEntry = appResults.currentItem?.entry;
+        const raw = selectedEntry?.rawValue ?? "";
+        const type = selectedEntry?.type ?? "";
+        return raw && /^#\d+/.test(type) ? raw : "";
+    }
+    readonly property int clipboardPinnedCount: Cliphist.entries.filter(entry => Cliphist.isPinned(entry)).length
+    readonly property int clipboardUnpinnedCount: Cliphist.entries.length - clipboardPinnedCount
     implicitWidth: searchWidgetContent.implicitWidth + Appearance.sizes.elevationMargin * 2
     implicitHeight: searchWidgetContent.implicitHeight + searchBar.verticalPadding * 2 + Appearance.sizes.elevationMargin * 2
 
@@ -221,6 +230,74 @@ Item { // Wrapper
                             event.accepted = true;
                             root.focusSearchInput();
                         }
+                    }
+                }
+            }
+
+            Rectangle {
+                visible: root.showResults && root.isClipboardMode && !root.isFileSearchMode
+                Layout.fillWidth: true
+                height: 1
+                color: Appearance.colors.colOutlineVariant
+                Layout.row: 3
+            }
+
+            RowLayout {
+                visible: root.showResults && root.isClipboardMode && !root.isFileSearchMode
+                Layout.fillWidth: true
+                Layout.leftMargin: 10
+                Layout.rightMargin: 10
+                Layout.bottomMargin: 10
+                Layout.row: 4
+                spacing: 8
+
+                StyledText {
+                    Layout.fillWidth: true
+                    color: Appearance.colors.colSubtext
+                    font.pixelSize: Appearance.font.pixelSize.smaller
+                    text: Translation.tr("Pinned: %1").arg(root.clipboardPinnedCount)
+                }
+
+                RippleButton {
+                    enabled: root.selectedClipboardRawEntry !== ""
+                    implicitHeight: 34
+                    implicitWidth: 34
+                    colBackgroundHover: Appearance.colors.colSecondaryContainerHover
+                    colRipple: Appearance.colors.colSecondaryContainerActive
+                    onClicked: {
+                        if (root.selectedClipboardRawEntry !== "")
+                            Cliphist.togglePinned(root.selectedClipboardRawEntry);
+                    }
+
+                    contentItem: MaterialSymbol {
+                        anchors.centerIn: parent
+                        text: root.selectedClipboardRawEntry !== "" && Cliphist.isPinned(root.selectedClipboardRawEntry) ? "keep_off" : "keep"
+                        font.pixelSize: Appearance.font.pixelSize.hugeass
+                        color: Appearance.colors.colOnSecondaryContainer
+                    }
+
+                    StyledToolTip {
+                        text: root.selectedClipboardRawEntry !== "" && Cliphist.isPinned(root.selectedClipboardRawEntry) ? Translation.tr("Unpin selected") : Translation.tr("Pin selected")
+                    }
+                }
+
+                RippleButton {
+                    enabled: root.clipboardUnpinnedCount > 0
+                    implicitHeight: 34
+                    implicitWidth: 34
+                    colBackgroundHover: Appearance.colors.colSecondaryContainerHover
+                    colRipple: Appearance.colors.colSecondaryContainerActive
+                    onClicked: Cliphist.clearUnpinned()
+
+                    contentItem: MaterialSymbol {
+                        anchors.centerIn: parent
+                        text: "delete_sweep"
+                        font.pixelSize: Appearance.font.pixelSize.hugeass
+                        color: Appearance.colors.colOnSecondaryContainer
+                    }
+
+                    StyledToolTip {
+                        text: Translation.tr("Delete all")
                     }
                 }
             }

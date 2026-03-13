@@ -249,10 +249,10 @@ Singleton {
                 return resultComp.createObject(null, {
                     rawValue: entry,
                     name: StringUtils.cleanCliphistEntry(entry),
-                    verb: "",
+                    verb: Translation.tr("Paste"),
                     type: type,
                     execute: () => {
-                        Cliphist.copy(entry);
+                        Cliphist.paste(entry);
                     },
                     actions: [resultComp.createObject(null, {
                             name: Translation.tr("Copy"),
@@ -260,6 +260,13 @@ Singleton {
                             iconType: LauncherSearchResult.IconType.Material,
                             execute: () => {
                                 Cliphist.copy(entry);
+                            }
+                        }), resultComp.createObject(null, {
+                            name: Cliphist.isPinned(entry) ? Translation.tr("Unpin") : Translation.tr("Pin"),
+                            iconName: Cliphist.isPinned(entry) ? "keep_off" : "keep",
+                            iconType: LauncherSearchResult.IconType.Material,
+                            execute: () => {
+                                Cliphist.togglePinned(entry);
                             }
                         }), resultComp.createObject(null, {
                             name: Translation.tr("Delete"),
