@@ -341,16 +341,25 @@ ContentPage {
     ContentSection {  
         icon: "nest_clock_farsight_analog"  
         title: Translation.tr("Time")  
+
+        ConfigSwitch {
+            buttonIcon: "schedule"
+            text: Translation.tr("24-hour format")
+            checked: !/\bap\b/i.test(Config.options.time.format)
+            onCheckedChanged: {
+                Config.options.time.format = checked ? "hh:mm" : "h:mm AP";
+            }
+        }
   
         ConfigSwitch {  
             buttonIcon: "pace"  
-            text: Translation.tr("Second precision")  
+            text: Translation.tr("Show seconds")  
             checked: Config.options.time.secondPrecision  
             onCheckedChanged: {  
                 Config.options.time.secondPrecision = checked;  
             }  
             StyledToolTip {  
-                text: Translation.tr("Enable if you want clocks to show seconds accurately")  
+                text: Translation.tr("Show seconds in digital clocks")  
             }  
         }  
   

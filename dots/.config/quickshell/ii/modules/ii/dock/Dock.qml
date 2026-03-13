@@ -27,7 +27,7 @@ Scope { // Scope
             screen: modelData
             visible: !GlobalStates.screenLocked
 
-            property bool reveal: root.pinned || (Config.options?.dock.hoverToReveal && dockMouseArea.containsMouse) || dockApps.requestDockShow || (!ToplevelManager.activeToplevel?.activated)
+            property bool reveal: !Config.options?.dock.autoHide || root.pinned || (Config.options?.dock.hoverToReveal && dockMouseArea.containsMouse) || dockApps.requestDockShow
 
             property bool isBarBottom: !Config.options.bar.vertical && Config.options.bar.bottom
 
@@ -55,8 +55,8 @@ Scope { // Scope
                 id: dockMouseArea
                 height: parent.height
                 anchors {
-                    topMargin: isBarBottom ? 0 : dockRoot.reveal ? 0 : Config.options?.dock.hoverToReveal ? (dockRoot.implicitHeight - Config.options.dock.hoverRegionHeight) : (dockRoot.implicitHeight + 1)
-                    bottomMargin: isBarBottom ? dockRoot.reveal ? 0 : Config.options?.dock.hoverToReveal ? (dockRoot.implicitHeight - Config.options.dock.hoverRegionHeight) : (dockRoot.implicitHeight + 1) : 0
+                    topMargin: isBarBottom ? 0 : dockRoot.reveal ? 0 : (Config.options?.dock.autoHide && Config.options?.dock.hoverToReveal) ? (dockRoot.implicitHeight - Config.options.dock.hoverRegionHeight) : (dockRoot.implicitHeight + 1)
+                    bottomMargin: isBarBottom ? dockRoot.reveal ? 0 : (Config.options?.dock.autoHide && Config.options?.dock.hoverToReveal) ? (dockRoot.implicitHeight - Config.options.dock.hoverRegionHeight) : (dockRoot.implicitHeight + 1) : 0
                     horizontalCenter: parent.horizontalCenter
                 }
                 implicitWidth: dockHoverRegion.implicitWidth + Appearance.sizes.elevationMargin * 2

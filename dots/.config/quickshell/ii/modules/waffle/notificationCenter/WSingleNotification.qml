@@ -13,13 +13,32 @@ MouseArea {
     id: root
 
     required property var notification
-    property bool expanded: notification.actions.length > 0
+    property var visibleActions: (root.notification?.actions ?? []).filter(action => !root.isActivateAction(action))
+    property bool expanded: visibleActions.length > 0
     property string groupExpandControlMessage: ""
 
     readonly property bool isPopup: notification?.popup ?? false
 
     signal groupExpandToggle
     hoverEnabled: true
+
+    function isActivateAction(action) {
+        const identifier = (action?.identifier ?? "").toString().trim().toLowerCase();
+        const text = (action?.text ?? "").toString().trim().toLowerCase();
+        return identifier === "default" || identifier === "activate" || identifier === "open" || text === "activate" || text === "open";
+    }
+
+    function activateFromBody() {
+        const activateAction = (root.notification?.actions ?? []).find(action => root.isActivateAction(action));
+        if (!activateAction)
+            return;
+        Notifications.attemptInvokeAction(root.notification.notificationId, activateAction.identifier);
+    }
+
+    onClicked: (mouse) => {
+        if (mouse.button === Qt.LeftButton)
+            root.activateFromBody();
+    }
 
     function dismiss() {
         Qt.callLater(() => {
@@ -168,11 +187,11 @@ MouseArea {
     }
 
     component ActionsRow: RowLayout {
-        visible: root.expanded && root.notification.actions.length > 0
+        visible: root.expanded && root.visibleActions.length > 0
         uniformCellSizes: true
         Repeater {
             id: actionRepeater
-            model: root.notification.actions
+            model: root.visibleActions
             delegate: WBorderedButton {
                 id: actionButton
                 Layout.fillHeight: true
@@ -188,6 +207,9 @@ MouseArea {
                     font.pixelSize: Looks.font.pixelSize.large
                     horizontalAlignment: Text.AlignHCenter
                     wrapMode: Text.Wrap
+                }
+                onClicked: {
+                    Notifications.attemptInvokeAction(root.notification.notificationId, modelData.identifier);
                 }
             }
         }

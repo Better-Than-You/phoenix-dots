@@ -132,6 +132,15 @@ ContentPage {
             }
         }
 
+        ConfigSwitch {
+            buttonIcon: "shelf_auto_hide"
+            text: Translation.tr("Automatically hide")
+            checked: Config.options.dock.autoHide
+            onCheckedChanged: {
+                Config.options.dock.autoHide = checked;
+            }
+        }
+
         ConfigRow {
             uniform: true
             ConfigSwitch {
