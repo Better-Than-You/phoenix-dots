@@ -86,6 +86,18 @@ Singleton {
             }
         },
         {
+            action: "logout",
+            execute: () => {
+                Session.logout();
+            }
+        },
+        {
+            action: "shutdown",
+            execute: () => {
+                Session.poweroff();
+            }
+        },
+        {
             action: "superpaste",
             execute: args => {
                 if (!/^(\d+)/.test(args.trim())) {
