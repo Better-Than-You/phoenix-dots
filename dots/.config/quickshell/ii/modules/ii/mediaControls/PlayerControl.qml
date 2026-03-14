@@ -10,6 +10,8 @@ import QtQuick.Effects
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
+import Quickshell.Hyprland
+import Quickshell.Wayland
 import Quickshell.Services.Mpris
 
 Item { // Player instance
@@ -27,6 +29,22 @@ Item { // Player instance
     property real radius
 
     property string displayedArtFilePath: root.downloaded ? Qt.resolvedUrl(artFilePath) : ""
+
+    function focusPlayerWindow() {
+        const desktopEntry = (root.player?.desktopEntry ?? "").toLowerCase();
+        if (!desktopEntry) return;
+
+        // Prefer exact appId matches from Wayland toplevels.
+        const toplevels = ToplevelManager.toplevels.values;
+        const byToplevel = toplevels.find(t => (t?.appId ?? "").toLowerCase() === desktopEntry)
+            ?? toplevels.find(t => (t?.appId ?? "").toLowerCase().startsWith(desktopEntry));
+        if (byToplevel) { byToplevel.activate(); return; }
+
+        // Fallback to Hyprland clients by class/initialClass and focus by address.
+        const byClient = HyprlandData.windowList.find(w => (w?.class ?? "").toLowerCase() === desktopEntry || (w?.initialClass ?? "").toLowerCase() === desktopEntry)
+            ?? HyprlandData.windowList.find(w => (w?.class ?? "").toLowerCase().includes(desktopEntry) || (w?.initialClass ?? "").toLowerCase().includes(desktopEntry));
+        if (byClient?.address) Hyprland.dispatch(`focuswindow address:${byClient.address}`);
+    }
 
     component TrackChangeButton: RippleButton {
         id: button
@@ -289,6 +307,12 @@ Item { // Player instance
                             buttonSize: 18
                             fill: MprisController.activePlayer == root.player
                             downAction: () => MprisController.activePlayer = root.player
+                        }
+                        TrackChangeButton {
+                            iconName: "open_in_new"
+                            buttonSize: 18
+                            fill: false
+                            downAction: () => root.focusPlayerWindow()
                         }
                     }
 

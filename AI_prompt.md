@@ -157,3 +157,136 @@ In the `results` binding, prefix checks use `if/else if` chains. More specific p
 6. Add the prefix to `ensurePrefix` array in `LauncherSearch.qml`
 7. In `LauncherSearch.results`: add an `else if` branch for early return (if exclusive mode) or add to the general flow section
 8. If async (subprocess), add a Process + handler in `LauncherSearch.qml`, trigger from `onQueryChanged`
+
+---
+
+# II Panel — Features & Architecture
+
+> Extended context documenting panel services, bar widgets, and settings added during AI-assisted sessions.
+
+## Key Singletons & Services
+
+| Singleton | File | Notes |
+|-----------|------|-------|
+| `MprisController` | `services/MprisController.qml` | Tracks active MPRIS player. `activePlayer` → current player; `players` → all. Each `MprisPlayer` has `.desktopEntry` (lowercase app name e.g. `"spotify"`, `"firefox"`), `.trackTitle`, `.trackArtist`, `.trackArtUrl`, `.isPlaying`, `.position`, `.length`, `.togglePlaying()`, `.previous()`, `.next()` |
+| `HyprlandData` | `services/HyprlandData.qml` | Imported via `qs.services`. `windowList` → list of Hyprland client objects with `.class`, `.initialClass`, `.address`. Uses `import Quickshell.Wayland` for `ToplevelManager` internally. |
+| `Persistent` | `services/Persistent.qml` | JSON state persistence. `Persistent.states.*` for runtime state. `Persistent.states.idle.inhibit`, `.sessionId`. `Persistent.states.media.popupRect`. |
+| `GlobalStates` | `services/GlobalStates.qml` | Global boolean toggles. `GlobalStates.mediaControlsOpen` — toggled to show/hide the media controls popup. |
+| `LyricsService` | `services/LyricsService.qml` | `hasSyncedLines` (bool), `initiliazeLyrics()`. |
+| `ToplevelManager` | From `import Quickshell.Wayland` | Wayland toplevel manager. `ToplevelManager.toplevels.values` → list; each has `.appId` and `.activate()`. |
+| `Hyprland` | From `import Quickshell.Hyprland` | `Hyprland.dispatch('focuswindow address:0x...')` to focus a window by address. |
+
+## Config System
+
+- **`modules/common/Config.qml`**: All default settings, under `Config.options.*`
+- Runtime user overrides: `~/.config/illogical-impulse/config.json`
+- Adding a new config block example (as done for idle):
+
+```qml
+property JsonObject idle: JsonObject {
+    property bool keepAwakeOnStartup: true
+}
+```
+
+## Idle / Keep-Awake System
+
+**`services/Idle.qml`** — Singleton keep-awake service via Wayland `IdleInhibitor`.
+
+Key logic: On `Persistent.onReadyChanged`, a `restoreTimer` fires:
+- If `Persistent.states.idle.sessionId` matches current Hyprland instance signature → restore saved `inhibit` state.
+- Else (new session) → read `Config.options.idle.keepAwakeOnStartup` (default `true`) and apply it.
+
+**Settings UI**: `modules/settings/GeneralConfig.qml` — added a "Idle" `ContentSection` with a `ConfigSwitch` bound to `Config.options.idle.keepAwakeOnStartup`.
+
+## Media Controls Popup Structure
+
+**`modules/ii/mediaControls/MediaControls.qml`** — The floating popup window (`PanelWindow`).
+- Opens when `GlobalStates.mediaControlsOpen === true`.
+- Position is anchored based on `Persistent.states.media.popupRect` (set when bar widget is clicked).
+- Contains a `Repeater` over `root.meaningfulPlayers` (deduplicated via `filterDuplicatePlayers()`), rendering one `PlayerControl` per player.
+
+**`modules/ii/mediaControls/PlayerControl.qml`** — Individual player card.
+- Props: `required property MprisPlayer player`, `visualizerPoints`, `radius`.
+- Has `component TrackChangeButton: RippleButton` defined inline. Each button: `iconName`, `buttonSize` (default 24), `fill`, `downAction`.
+- Controls row (`sliderRow` RowLayout) contains: skip_previous → progress slider/bar → skip_next → keep (pin as active) → open_in_new (focus window).
+- `focusPlayerWindow()` function: ToplevelManager exact/prefix match on `player.desktopEntry`, fallback to HyprlandData `windowList` by class/initialClass.
+- Imports needed: `Quickshell.Hyprland`, `Quickshell.Wayland` (added alongside existing Quickshell imports).
+
+## Bar Media Widget
+
+**`modules/ii/bar/Media.qml`** — Bar widget showing current track.
+
+Mouse handling:
+| Button | Action |
+|--------|--------|
+| Left | Opens media controls popup (`GlobalStates.mediaControlsOpen = !...`; sets `Persistent.states.media.popupRect`) |
+| Middle | `activePlayer.togglePlaying()` |
+| Back | `activePlayer.previous()` |
+| Right / Forward | `activePlayer.next()` |
+
+To open popup correctly, the bar widget first captures its own position:
+```qml
+var globalPos = root.mapToItem(null, 0, 0);
+Persistent.states.media.popupRect = Qt.rect(globalPos.x, globalPos.y, root.width, root.height);
+GlobalStates.mediaControlsOpen = !GlobalStates.mediaControlsOpen;
+```
+
+## Focusing a Media App Window (Pattern)
+
+Used in `PlayerControl.focusPlayerWindow()`. Reusable pattern for any QML component:
+
+```qml
+// Imports needed: Quickshell.Hyprland, Quickshell.Wayland, qs.services
+function focusPlayerWindow() {
+    const desktopEntry = (root.player?.desktopEntry ?? "").toLowerCase();
+    if (!desktopEntry) return;
+    // 1. Try Wayland ToplevelManager (exact then prefix)
+    const toplevels = ToplevelManager.toplevels.values;
+    const byToplevel = toplevels.find(t => (t?.appId ?? "").toLowerCase() === desktopEntry)
+        ?? toplevels.find(t => (t?.appId ?? "").toLowerCase().startsWith(desktopEntry));
+    if (byToplevel) { byToplevel.activate(); return; }
+    // 2. Fallback: Hyprland window list by class/initialClass
+    const byClient = HyprlandData.windowList.find(w =>
+        (w?.class ?? "").toLowerCase() === desktopEntry ||
+        (w?.initialClass ?? "").toLowerCase() === desktopEntry)
+        ?? HyprlandData.windowList.find(w =>
+            (w?.class ?? "").toLowerCase().includes(desktopEntry) ||
+            (w?.initialClass ?? "").toLowerCase().includes(desktopEntry));
+    if (byClient?.address) Hyprland.dispatch(`focuswindow address:${byClient.address}`);
+}
+```
+
+## Settings Pages
+
+| File | Contents |
+|------|---------|
+| `modules/settings/GeneralConfig.qml` | General settings. Has sections: Battery, **Idle** (added), Language, etc. |
+| `modules/settings/ServicesConfig.qml` | Service-related settings. |
+| Common widgets: `ConfigSwitch`, `ContentSection` (with `icon` + `title` props). | |
+
+## Common Patterns
+
+### RippleButton with downAction
+```qml
+RippleButton {
+    downAction: () => someFunction()
+    contentItem: MaterialSymbol { text: "icon_name" }
+}
+```
+
+### Persistent state access
+```qml
+Persistent.states.someKey.someValue = newValue;
+// On load:
+const val = Persistent.states.someKey.someValue ?? defaultValue;
+```
+
+### Session detection (new vs resumed)
+```qml
+const storedId = Persistent.states.idle.sessionId || "";
+if (storedId === root._sessionId) {
+    // resumed
+} else {
+    // new session — apply startup defaults
+}
+```
