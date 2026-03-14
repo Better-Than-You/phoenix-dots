@@ -447,6 +447,10 @@ Singleton {
                 }
             }
 
+            property JsonObject idle: JsonObject {
+                property bool keepAwakeOnStartup: true
+            }
+
             property JsonObject language: JsonObject {
                 property string ui: "en_US" // UI language. "auto" for system locale, or specific language code like "zh_CN", "en_US"
                 property JsonObject translator: JsonObject {

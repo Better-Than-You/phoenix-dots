@@ -22,7 +22,10 @@ Singleton {
             if (storedId === root._sessionId) {
                 root.inhibit = Persistent.states.idle.inhibit ?? false
             } else {
-                root.inhibit = false
+                const startupKeepAwake = Config.options.idle.keepAwakeOnStartup ?? true
+                root.inhibit = startupKeepAwake
+                Persistent.states.idle.inhibit = startupKeepAwake
+                Persistent.states.idle.sessionId = root._sessionId
             }
         }
     }

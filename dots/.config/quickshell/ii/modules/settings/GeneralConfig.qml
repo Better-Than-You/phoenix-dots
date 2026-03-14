@@ -131,6 +131,20 @@ ContentPage {
             }  
         }  
     }  
+
+    ContentSection {
+        icon: "coffee"
+        title: Translation.tr("Idle")
+
+        ConfigSwitch {
+            buttonIcon: "coffee"
+            text: Translation.tr("Keep screen awake on startup")
+            checked: Config.options.idle.keepAwakeOnStartup
+            onCheckedChanged: {
+                Config.options.idle.keepAwakeOnStartup = checked;
+            }
+        }
+    }
   
     ContentSection {  
         icon: "language"  
