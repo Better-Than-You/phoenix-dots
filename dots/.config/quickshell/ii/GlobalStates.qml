@@ -22,6 +22,7 @@ Singleton {
     property bool overlayOpen: false
     property bool overviewOpen: false
     property bool regionSelectorOpen: false
+    property bool scratchpadOpen: false
     property bool searchOpen: false
     property bool screenLocked: false
     property bool screenLockContainsCharacters: false

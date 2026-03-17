@@ -14,6 +14,7 @@ import qs.modules.ii.onScreenKeyboard
 import qs.modules.ii.overview
 import qs.modules.ii.polkit
 import qs.modules.ii.regionSelector
+import qs.modules.ii.scratchpad
 import qs.modules.ii.screenCorners
 import qs.modules.ii.sessionScreen
 import qs.modules.ii.sidebarPolicies
@@ -54,6 +55,7 @@ Scope {
     PanelLoader { component: Overview {} }
     PanelLoader { component: Polkit {} }
     PanelLoader { component: RegionSelector {} }
+    PanelLoader { component: Scratchpad {} }
     PanelLoader { component: ScreenCorners {} }
     PanelLoader { component: SessionScreen {} }
     PanelLoader { component: SidebarPolicies {} }
