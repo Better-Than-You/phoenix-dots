@@ -31,10 +31,10 @@ Singleton {
 	onAllPlayersChanged: {
 		const nextPlayer = allPlayers.find(player => player.desktopEntry === root.priorityPlayer);
 		if (nextPlayer) {
-			activePlayer = nextPlayer;
+			trackedPlayer = nextPlayer;
 			return;
 		} else {
-			activePlayer = players[0];
+			trackedPlayer = players[0] ?? null;
 		}
 	}
 
