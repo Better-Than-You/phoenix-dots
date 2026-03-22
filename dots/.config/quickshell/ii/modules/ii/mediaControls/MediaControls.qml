@@ -42,8 +42,12 @@ Scope {
                 }
             }
 
-            // Pick the one with non-empty trackArtUrl, or fallback to the first
-            let chosenIdx = group.find(idx => players[idx].trackArtUrl && players[idx].trackArtUrl.length > 0);
+            // Pick the one that is actively playing, or has activePlayer, or has art URL, or the first
+            let chosenIdx = group.find(idx => players[idx].isPlaying);
+            if (chosenIdx === undefined)
+                chosenIdx = group.find(idx => players[idx] === root.activePlayer);
+            if (chosenIdx === undefined)
+                chosenIdx = group.find(idx => players[idx].trackArtUrl && players[idx].trackArtUrl.length > 0);
             if (chosenIdx === undefined)
                 chosenIdx = group[0];
 

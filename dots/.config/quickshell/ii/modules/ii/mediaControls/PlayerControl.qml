@@ -17,10 +17,10 @@ import Quickshell.Services.Mpris
 Item { // Player instance
     id: root
     required property MprisPlayer player
-    property var artUrl: player?.trackArtUrl
+    property var artUrl: player?.trackArtUrl ?? ""
     property string artDownloadLocation: Directories.coverArt
-    property string artFileName: Qt.md5(artUrl)
-    property string artFilePath: `${artDownloadLocation}/${artFileName}`
+    property string artFileName: artUrl.length > 0 ? Qt.md5(artUrl) : ""
+    property string artFilePath: artFileName.length > 0 ? `${artDownloadLocation}/${artFileName}` : ""
     property color artDominantColor: ColorUtils.mix((colorQuantizer?.colors[0] ?? Appearance.colors.colPrimary), Appearance.colors.colPrimaryContainer, 0.8) || Appearance.m3colors.m3secondaryContainer
     property bool downloaded: false
     property list<real> visualizerPoints: []
@@ -28,22 +28,42 @@ Item { // Player instance
     property int visualizerSmoothing: 2 // Number of points to average for smoothing
     property real radius
 
-    property string displayedArtFilePath: root.downloaded ? Qt.resolvedUrl(artFilePath) : ""
+    property string displayedArtFilePath: root.downloaded && root.artUrl.length > 0 ? Qt.resolvedUrl(artFilePath) : ""
+
+    // Force track info updates when player changes
+    onPlayerChanged: {
+        downloaded = false
+    }
 
     function focusPlayerWindow() {
         const desktopEntry = (root.player?.desktopEntry ?? "").toLowerCase();
-        if (!desktopEntry) return;
+        const identity = (root.player?.identity ?? "").toLowerCase();
+        const searchName = desktopEntry.length > 0 ? desktopEntry : identity;
+
+        if (!searchName) return;
 
         // Prefer exact appId matches from Wayland toplevels.
         const toplevels = ToplevelManager.toplevels.values;
-        const byToplevel = toplevels.find(t => (t?.appId ?? "").toLowerCase() === desktopEntry)
-            ?? toplevels.find(t => (t?.appId ?? "").toLowerCase().startsWith(desktopEntry));
+        const byToplevel = toplevels.find(t => (t?.appId ?? "").toLowerCase() === searchName)
+            ?? toplevels.find(t => (t?.appId ?? "").toLowerCase().startsWith(searchName));
         if (byToplevel) { byToplevel.activate(); return; }
 
         // Fallback to Hyprland clients by class/initialClass and focus by address.
-        const byClient = HyprlandData.windowList.find(w => (w?.class ?? "").toLowerCase() === desktopEntry || (w?.initialClass ?? "").toLowerCase() === desktopEntry)
-            ?? HyprlandData.windowList.find(w => (w?.class ?? "").toLowerCase().includes(desktopEntry) || (w?.initialClass ?? "").toLowerCase().includes(desktopEntry));
-        if (byClient?.address) Hyprland.dispatch(`focuswindow address:${byClient.address}`);
+        const byClient = HyprlandData.windowList.find(w => (w?.class ?? "").toLowerCase() === searchName || (w?.initialClass ?? "").toLowerCase() === searchName)
+            ?? HyprlandData.windowList.find(w => (w?.class ?? "").toLowerCase().includes(searchName) || (w?.initialClass ?? "").toLowerCase().includes(searchName));
+        if (byClient?.address) { Hyprland.dispatch(`focuswindow address:${byClient.address}`); return; }
+
+        // For cases like Brave where desktopEntry is empty, try searching by first word of Identity
+        if (!desktopEntry && identity) {
+            const identityWords = identity.split(/[-.\s]/);
+            for (const word of identityWords) {
+                const lowerWord = word.toLowerCase();
+                if (lowerWord.length > 2) {
+                    const byIdentity = HyprlandData.windowList.find(w => (w?.class ?? "").toLowerCase().includes(lowerWord) || (w?.initialClass ?? "").toLowerCase().includes(lowerWord));
+                    if (byIdentity?.address) { Hyprland.dispatch(`focuswindow address:${byIdentity.address}`); return; }
+                }
+            }
+        }
     }
 
     component TrackChangeButton: RippleButton {
@@ -135,6 +155,17 @@ Item { // Player instance
             }
         }
 
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            propagateComposedEvents: true
+            onClicked: (mouse) => {
+                // Allow clicks on buttons to pass through
+                if (mouse.accepted) return;
+                root.focusPlayerWindow()
+            }
+        }
+
         Image {
             id: blurredArt
             anchors.fill: parent
@@ -216,7 +247,10 @@ Item { // Player instance
                     font.pixelSize: Appearance.font.pixelSize.large
                     color: blendedColors.colOnLayer0
                     elide: Text.ElideRight
-                    text: StringUtils.cleanMusicTitle(root.player?.trackTitle) || "Untitled"
+                    text: {
+                        const title = StringUtils.cleanMusicTitle(root.player?.trackTitle);
+                        return title && title.length > 0 ? title : "Untitled"
+                    }
                     animateChange: true
                     animationDistanceX: 6
                     animationDistanceY: 0
@@ -227,7 +261,10 @@ Item { // Player instance
                     font.pixelSize: Appearance.font.pixelSize.smaller
                     color: blendedColors.colSubtext
                     elide: Text.ElideRight
-                    text: root.player?.trackArtist
+                    text: {
+                        const artist = root.player?.trackArtist;
+                        return artist && artist.length > 0 ? artist : ""
+                    }
                     animateChange: true
                     animationDistanceX: 6
                     animationDistanceY: 0
@@ -306,7 +343,7 @@ Item { // Player instance
                             iconName: "keep"
                             buttonSize: 18
                             fill: MprisController.activePlayer == root.player
-                            downAction: () => MprisController.activePlayer = root.player
+                            downAction: () => MprisController.setActivePlayer(root.player)
                         }
                         TrackChangeButton {
                             iconName: "open_in_new"
