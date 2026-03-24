@@ -54,7 +54,8 @@ Singleton {
                     saveFileName="screenshot-$(date '+%Y-%m-%d_%H.%M.%S').png" && \
                     savePath="${saveDir}/$saveFileName" && \
                     ${cropToStdout} | tee >(wl-copy) > "$savePath" && \
-                    ${cleanup}`
+                    ${cleanup} && \
+                    [ -s "$savePath" ] && notify-send "Screenshot saved" "$savePath" -a "Shell" -i "$savePath"`
                 ]
 
                 break;

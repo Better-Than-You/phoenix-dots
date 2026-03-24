@@ -696,7 +696,7 @@ Singleton {
             }
 
             property JsonObject screenSnip: JsonObject {
-                property string savePath: "" // only copy to clipboard when empty
+                property string savePath: Directories.pictures.replace("file://","") + "/Screenshots"
             }
 
             property JsonObject sounds: JsonObject {
