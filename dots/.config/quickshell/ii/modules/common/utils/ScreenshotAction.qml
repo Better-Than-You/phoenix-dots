@@ -59,22 +59,23 @@ Singleton {
 
                 break;
             case ScreenshotAction.Action.Edit:
-                if (saveDir !== "") {
-                    // When a save directory is configured, pass an explicit output path to
-                    // the annotation tool so its Save button reliably writes the file there.
-                    const editAnnotateCmd = Config.options.regionSelector.annotation.useSatty
-                        ? "satty -f - -o"
-                        : "swappy -f - -o";
-                    return [
-                        "bash", "-c",
-                        `mkdir -p '${StringUtils.shellSingleQuoteEscape(saveDir)}' && \
-                        saveFileName="screenshot-$(date '+%Y-%m-%d_%H.%M.%S').png" && \
-                        savePath="${saveDir}/$saveFileName" && \
-                        ${cropToStdout} | ${editAnnotateCmd} "$savePath" && \
-                        ${cleanup}`
-                    ]
-                }
-                return ["bash", "-c", `${cropToStdout} | ${annotationCommand} && ${cleanup}`]
+                // Always pass an explicit -o path so the annotation tool's Save button
+                // works without needing its own save_dir config or an xdg-portal session.
+                // Fall back to the Pictures directory when no saveDir is configured.
+                const editSaveDir = saveDir !== ""
+                    ? saveDir
+                    : FileUtils.trimFileProtocol(Directories.pictures);
+                const editAnnotateCmd = Config.options.regionSelector.annotation.useSatty
+                    ? "satty -f - -o"
+                    : "swappy -f - -o";
+                return [
+                    "bash", "-c",
+                    `mkdir -p '${StringUtils.shellSingleQuoteEscape(editSaveDir)}' && \
+                    saveFileName="screenshot-$(date '+%Y-%m-%d_%H.%M.%S').png" && \
+                    savePath="${editSaveDir}/$saveFileName" && \
+                    ${cropToStdout} | ${editAnnotateCmd} "$savePath" && \
+                    ${cleanup}`
+                ]
                 break;
             case ScreenshotAction.Action.Search:
                 return ["bash", "-c", `${cropInPlace} && xdg-open "${root.imageSearchEngineBaseUrl}$(${uploadAndGetUrl(screenshotPath)})" && ${cleanup}`]
