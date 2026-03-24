@@ -59,6 +59,21 @@ Singleton {
 
                 break;
             case ScreenshotAction.Action.Edit:
+                if (saveDir !== "") {
+                    // When a save directory is configured, pass an explicit output path to
+                    // the annotation tool so its Save button reliably writes the file there.
+                    const editAnnotateCmd = Config.options.regionSelector.annotation.useSatty
+                        ? "satty -f - -o"
+                        : "swappy -f - -o";
+                    return [
+                        "bash", "-c",
+                        `mkdir -p '${StringUtils.shellSingleQuoteEscape(saveDir)}' && \
+                        saveFileName="screenshot-$(date '+%Y-%m-%d_%H.%M.%S').png" && \
+                        savePath="${saveDir}/$saveFileName" && \
+                        ${cropToStdout} | ${editAnnotateCmd} "$savePath" && \
+                        ${cleanup}`
+                    ]
+                }
                 return ["bash", "-c", `${cropToStdout} | ${annotationCommand} && ${cleanup}`]
                 break;
             case ScreenshotAction.Action.Search:

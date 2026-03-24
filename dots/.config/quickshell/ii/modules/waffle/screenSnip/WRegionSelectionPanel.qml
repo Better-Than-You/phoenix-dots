@@ -155,12 +155,37 @@ PanelWindow {
             property int selectionWidth: isWindowSelection ? ((hoveredWindow?.size[0] ?? 0) + winPadding * 2) : regionWidth
             property int selectionHeight: isWindowSelection ? ((hoveredWindow?.size[1] ?? 0) + winPadding * 2) : regionHeight
 
+            // Track which mouse button initiated the drag so right-click can
+            // trigger the annotation/edit action (consistent with the ii module).
+            property int lastPressedButton: Qt.LeftButton
+
+            onPressed: (mouse) => {
+                lastPressedButton = mouse.button;
+                if (mouse.button === Qt.RightButton) {
+                    // DragManager only records startX/startY for the left button,
+                    // so we mirror that logic here for right-click drags.
+                    startX = mouse.x;
+                    startY = mouse.y;
+                }
+            }
+
+            onPositionChanged: (mouse) => {
+                if (mouse.buttons & Qt.RightButton) {
+                    _dragDiffX = mouse.x - startX;
+                    _dragDiffY = mouse.y - startY;
+                    dragging = true;
+                }
+            }
+
             onDragReleased: (diffX, diffY) => {
                 if (selectionWidth === 0 || selectionHeight === 0) {
                     return;
                 }
                 const screenshotDir = Config.options.screenSnip.savePath !== "" ? Config.options.screenSnip.savePath : "";
-                const screenshotAction = root.getScreenshotAction();
+                // Right-click triggers the annotation/edit action; left-click uses the configured action.
+                const screenshotAction = dragArea.lastPressedButton === Qt.RightButton
+                    ? ScreenshotAction.Action.Edit
+                    : root.getScreenshotAction();
                 const command = ScreenshotAction.getCommand(dragArea.selectionX * root.monitorScale //
                 , dragArea.selectionY * root.monitorScale //
                 , dragArea.selectionWidth * root.monitorScale//
