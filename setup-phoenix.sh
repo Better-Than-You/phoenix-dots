@@ -248,6 +248,28 @@ else
     exit 1
 fi
 
+# Setup swappy config
+echo ""
+echo -e "${NC}• Setting up swappy config...${NC}"
+SWAPPY_CONFIG_DIR="$CONFIG_DIR/swappy"
+SWAPPY_SOURCE="$SCRIPT_DIR/dots/.config/swappy/config"
+if [ -f "$SWAPPY_SOURCE" ]; then
+    mkdir -p "$SWAPPY_CONFIG_DIR"
+    cp "$SWAPPY_SOURCE" "$SWAPPY_CONFIG_DIR/config"
+    echo -e "${GREEN}✓ Swappy config installed${NC}"
+else
+    log_verbose "Swappy config source not found, skipping"
+fi
+
+# Create Screenshots directory
+SCREENSHOTS_DIR="$HOME/Pictures/Screenshots"
+if [ ! -d "$SCREENSHOTS_DIR" ]; then
+    mkdir -p "$SCREENSHOTS_DIR"
+    echo -e "${GREEN}✓ Created Screenshots directory: $SCREENSHOTS_DIR${NC}"
+else
+    log_verbose "Screenshots directory already exists"
+fi
+
 echo ""
 echo -e "${NC}• Restarting Hyprland & Quickshell...${NC}"
 sleep 0.5

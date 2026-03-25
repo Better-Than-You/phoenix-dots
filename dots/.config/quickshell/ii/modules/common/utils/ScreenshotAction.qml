@@ -40,7 +40,7 @@ Singleton {
         const uploadAndGetUrl = (filePath) => {
             return `curl -sF files[]=@'${StringUtils.shellSingleQuoteEscape(filePath)}' ${root.fileUploadApiEndpoint} | jq -r '.files[0].url'`
         }
-        const annotationCommand = `${Config.options.regionSelector.annotation.useSatty ? "satty" : "swappy"} -f -`;
+        const useSatty = Config.options.regionSelector.annotation.useSatty;
         switch (action) {
             case ScreenshotAction.Action.Copy:
                 if (saveDir === "") {
@@ -53,13 +53,44 @@ Singleton {
                     `mkdir -p '${StringUtils.shellSingleQuoteEscape(saveDir)}' && \
                     saveFileName="screenshot-$(date '+%Y-%m-%d_%H.%M.%S').png" && \
                     savePath="${saveDir}/$saveFileName" && \
-                    ${cropToStdout} | tee >(wl-copy) > "$savePath" && \
-                    ${cleanup}`
+                    ${cropToStdout} | tee >(wl-copy) > "$savePath"; \
+                    ${cleanup}; \
+                    [ -f "$savePath" ] && notify-send "Screenshot saved" "$savePath" -a "Shell" -i "image-x-generic"`
                 ]
 
                 break;
             case ScreenshotAction.Action.Edit:
-                return ["bash", "-c", `${cropToStdout} | ${annotationCommand} && ${cleanup}`]
+                if (useSatty) {
+                    // Satty: we can specify the output file
+                    if (saveDir === "") {
+                        return ["bash", "-c", `${cropToStdout} | satty -f -; ${cleanup}`]
+                    }
+                    return [
+                        "bash", "-c",
+                        `mkdir -p '${StringUtils.shellSingleQuoteEscape(saveDir)}' && \
+                        saveFileName="screenshot-$(date '+%Y-%m-%d_%H.%M.%S').png" && \
+                        savePath="${saveDir}/$saveFileName" && \
+                        ${cropToStdout} | satty -f - --output-filename "$savePath"; \
+                        ${cleanup}; \
+                        [ -f "$savePath" ] && notify-send "Screenshot saved" "$savePath" -a "Shell" -i "image-x-generic"`
+                    ]
+                } else {
+                    // Swappy: uses its own config save_dir, early_exit=true closes after Ctrl+S
+                    // Check for newest file in save_dir to detect if save happened
+                    return [
+                        "bash", "-c",
+                        `swappyDir="$HOME/Pictures/Screenshots"; \
+                        mkdir -p "$swappyDir"; \
+                        beforeCount=$(ls -1 "$swappyDir" 2>/dev/null | wc -l); \
+                        ${cropToStdout} | swappy -f -; \
+                        ${cleanup}; \
+                        afterCount=$(ls -1 "$swappyDir" 2>/dev/null | wc -l); \
+                        if [ "$afterCount" -gt "$beforeCount" ]; then \
+                            newest=$(ls -t "$swappyDir" | head -1); \
+                            notify-send "Screenshot saved" "$swappyDir/$newest" -a "Shell" -i "image-x-generic"; \
+                        fi`
+                    ]
+                }
                 break;
             case ScreenshotAction.Action.Search:
                 return ["bash", "-c", `${cropInPlace} && xdg-open "${root.imageSearchEngineBaseUrl}$(${uploadAndGetUrl(screenshotPath)})" && ${cleanup}`]
