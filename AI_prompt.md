@@ -290,3 +290,150 @@ if (storedId === root._sessionId) {
     // new session — apply startup defaults
 }
 ```
+
+---
+
+## Media Controls / MPRIS Integration (Fixed March 2026)
+
+### Problem: Spotify Not Showing in Media Controls Preview Card
+
+Spotify and other MPRIS players weren't being recognized properly in the media controls popup card. The preview showed wrong player info (e.g., Brave instead of Spotify when both were running).
+
+### Root Causes & Fixes
+
+#### 1. **Incorrect activePlayer Assignment** (`services/MprisController.qml`)
+
+**Problem:** The `onAllPlayersChanged` handler was directly assigning to `activePlayer`:
+```qml
+activePlayer = nextPlayer;  // ❌ activePlayer is read-only!
+```
+
+**Fix:** Changed to set the underlying `trackedPlayer` property instead:
+```qml
+trackedPlayer = nextPlayer;  // ✅ Correct binding updates flowing through
+```
+
+#### 2. **Poor Player Selection Priority** (`services/MprisController.qml`)
+
+**Problem:** The selection logic only checked for priority player in config, didn't consider which player is actually playing.
+
+**Fix:** Implemented intelligent prioritization:
+```qml
+onAllPlayersChanged: {
+    // 1. If any player is currently playing, use that
+    const playingPlayer = allPlayers.find(player => player.isPlaying);
+    if (playingPlayer) {
+        trackedPlayer = playingPlayer;
+        return;
+    }
+
+    // 2. Check for priority player from config (~/.config/illogical-impulse/config.json)
+    if (root.priorityPlayer) {
+        const priorityMatch = allPlayers.find(player => player.desktopEntry === root.priorityPlayer);
+        if (priorityMatch) {
+            trackedPlayer = priorityMatch;
+            return;
+        }
+    }
+
+    // 3. Fall back to first available player
+    trackedPlayer = players[0] ?? null;
+}
+```
+
+**Key lesson:** Always prioritize actively playing players over config defaults.
+
+#### 3. **Duplicate Player Filtering** (`modules/ii/mediaControls/MediaControls.qml`)
+
+**Problem:** `filterDuplicatePlayers()` was choosing the first player with art URL, ignoring which was actually playing. When both Spotify and Brave (video player) were detected as same track, Brave was chosen if it had art first.
+
+**Fix:** Updated selection order in deduplication:
+```qml
+// Pick the one that is actively playing, or has activePlayer, or has art URL, or the first
+let chosenIdx = group.find(idx => players[idx].isPlaying);
+if (chosenIdx === undefined)
+    chosenIdx = group.find(idx => players[idx] === root.activePlayer);
+if (chosenIdx === undefined)
+    chosenIdx = group.find(idx => players[idx].trackArtUrl && players[idx].trackArtUrl.length > 0);
+if (chosenIdx === undefined)
+    chosenIdx = group[0];
+```
+
+#### 4. **Broken "Keep" Button** (`modules/ii/mediaControls/PlayerControl.qml`)
+
+**Problem:** The "keep" button tried direct assignment to read-only property:
+```qml
+downAction: () => MprisController.activePlayer = root.player  // ❌ Read-only!
+```
+
+**Fix:** Use the proper setter method:
+```qml
+downAction: () => MprisController.setActivePlayer(root.player)  // ✅
+```
+
+#### 5. **Window Focus Broken for Browsers** (`modules/ii/mediaControls/PlayerControl.qml`)
+
+**Problem:** `focusPlayerWindow()` only checked `desktopEntry` (empty for Brave), so window focus never worked for browser videos.
+
+**Fix:** Fall back to `Identity` property and search window classes:
+```qml
+function focusPlayerWindow() {
+    const desktopEntry = (root.player?.desktopEntry ?? "").toLowerCase();
+    const identity = (root.player?.identity ?? "").toLowerCase();
+    const searchName = desktopEntry.length > 0 ? desktopEntry : identity;
+
+    if (!searchName) return;
+
+    // Try Wayland toplevels first
+    const toplevels = ToplevelManager.toplevels.values;
+    const byToplevel = toplevels.find(t => (t?.appId ?? "").toLowerCase() === searchName)
+        ?? toplevels.find(t => (t?.appId ?? "").toLowerCase().startsWith(searchName));
+    if (byToplevel) { byToplevel.activate(); return; }
+
+    // Fall back to Hyprland window list
+    const byClient = HyprlandData.windowList.find(w =>
+        (w?.class ?? "").toLowerCase() === searchName ||
+        (w?.initialClass ?? "").toLowerCase() === searchName)
+        ?? HyprlandData.windowList.find(w =>
+            (w?.class ?? "").toLowerCase().includes(searchName) ||
+            (w?.initialClass ?? "").toLowerCase().includes(searchName));
+    if (byClient?.address) { Hyprland.dispatch(`focuswindow address:${byClient.address}`); return; }
+
+    // For browsers: split Identity by delimiters and search window classes
+    if (!desktopEntry && identity) {
+        const identityWords = identity.split(/[-.\s]/);
+        for (const word of identityWords) {
+            const lowerWord = word.toLowerCase();
+            if (lowerWord.length > 2) {
+                const byIdentity = HyprlandData.windowList.find(w =>
+                    (w?.class ?? "").toLowerCase().includes(lowerWord) ||
+                    (w?.initialClass ?? "").toLowerCase().includes(lowerWord));
+                if (byIdentity?.address) { Hyprland.dispatch(`focuswindow address:${byIdentity.address}`); return; }
+            }
+        }
+    }
+}
+```
+
+#### 6. **Full-Card Click for Window Focus** (`modules/ii/mediaControls/PlayerControl.qml`)
+
+**Fix:** Added MouseArea to entire card background:
+```qml
+MouseArea {
+    anchors.fill: parent
+    cursorShape: Qt.PointingHandCursor
+    propagateComposedEvents: true  // Allow button clicks to pass through
+    onClicked: (mouse) => {
+        if (mouse.accepted) return;
+        root.focusPlayerWindow()
+    }
+}
+```
+
+### Key Lessons for Future Work
+
+1. **Read-only properties in QML:** Can't directly assign. Use setter methods or modify the underlying binding.
+2. **MPRIS identification:** Use `desktopEntry` first, fall back to `Identity`, then try window class matching.
+3. **Player selection:** Always prioritize playing status, then explicit config/selection, then defaults.
+4. **Duplicate filtering:** When deduplicating similar players, check playing status first before art URL.
+5. **Wayland/Hyprland window matching:** Try ToplevelManager first (Wayland native), fall back to HyprlandData window list.

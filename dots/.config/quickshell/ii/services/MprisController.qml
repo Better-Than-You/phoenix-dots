@@ -29,13 +29,24 @@ Singleton {
 	property var activeTrack;
 
 	onAllPlayersChanged: {
-		const nextPlayer = allPlayers.find(player => player.desktopEntry === root.priorityPlayer);
-		if (nextPlayer) {
-			activePlayer = nextPlayer;
+		// 1. Check if a player is currently playing
+		const playingPlayer = allPlayers.find(player => player.isPlaying);
+		if (playingPlayer) {
+			trackedPlayer = playingPlayer;
 			return;
-		} else {
-			activePlayer = players[0];
 		}
+
+		// 2. Check for priority player from config
+		if (root.priorityPlayer) {
+			const priorityMatch = allPlayers.find(player => player.desktopEntry === root.priorityPlayer);
+			if (priorityMatch) {
+				trackedPlayer = priorityMatch;
+				return;
+			}
+		}
+
+		// 3. Fall back to first available player
+		trackedPlayer = players[0] ?? null;
 	}
 
 	property bool hasActivePlasmaIntegration: false
@@ -90,7 +101,10 @@ Singleton {
 			}
 
 			function onPlaybackStateChanged() {
-				if (root.trackedPlayer !== modelData) root.trackedPlayer = modelData;
+				// Switch to this player if it's now playing and the current one isn't
+				if (modelData.isPlaying && (!root.trackedPlayer || !root.trackedPlayer.isPlaying)) {
+					root.trackedPlayer = modelData;
+				}
 			}
 		}
 	}
