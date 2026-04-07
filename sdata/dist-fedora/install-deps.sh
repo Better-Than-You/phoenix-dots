@@ -78,6 +78,23 @@ v sudo dnf install yq -y
 # Install development tools
 r v sudo dnf install @development-tools fedora-packager -y
 
+# Install fd-find
+r v sudo dnf install fd-find -y
+
+# Install rpmfusion free repo
+FEDORA_VERSION=$(rpm -E %fedora)
+r v sudo dnf install "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-${FEDORA_VERSION}.noarch.rpm" -y
+
+# Detect GPU and install appropriate media drivers
+if lspci | grep -qi "VGA.*Intel"; then
+    echo "Intel GPU detected, installing intel-media-driver..."
+    r v sudo dnf install intel-media-driver -y
+elif lspci | grep -qi "VGA.*AMD"; then
+    echo "AMD GPU detected, skipping intel-media-driver (not needed)"
+else
+    echo "No Intel or AMD GPU detected, skipping media driver installation"
+fi
+
 # Install COPR repositories
 copr_repos_json=$(yq -o=j '.copr.repos // []' "$deps_data_file")
 eval "$(jq -r '@sh "copr_repos_array+=(\(.[]))"' <<<"$copr_repos_json")" # Fedora distro contains jq
