@@ -4,6 +4,8 @@ import qs.modules.common.functions
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Wayland
+import Quickshell.Hyprland
 import Quickshell.Services.Notifications
 
 /**
@@ -78,6 +80,21 @@ MouseArea { // Notification group area
         root.expanded = !root.expanded;
     }
 
+    function focusSourceApp() {
+        const appNameLower = (notificationGroup?.appName ?? "").toLowerCase();
+        if (!appNameLower) return;
+        const toplevels = ToplevelManager.toplevels.values;
+        const match = toplevels.find(t => t?.appId?.toLowerCase() === appNameLower)
+            ?? toplevels.find(t => t?.appId?.toLowerCase().startsWith(appNameLower));
+        if (match) {
+            match.activate();
+            GlobalStates.sidebarRightOpen = false;
+        } else {
+            const client = HyprlandData.windowList.find(w => w?.class?.toLowerCase() === appNameLower);
+            if (client?.address) Hyprland.dispatch(`focuswindow address:${client.address}`);
+        }
+    }
+
     DragManager { // Drag manager
         id: dragManager
         anchors.fill: parent
@@ -91,8 +108,16 @@ MouseArea { // Notification group area
         }
 
         onClicked: (mouse) => {
-            if (mouse.button === Qt.MiddleButton) 
+            if (mouse.button === Qt.MiddleButton) {
                 root.destroyWithAnimation();
+            } else if (mouse.button === Qt.LeftButton) {
+                if (root.expanded) {
+                    const firstNotif = root.notifications[0];
+                    if (firstNotif) firstNotif.focusSourceApp();
+                } else {
+                    root.toggleExpanded();
+                }
+            }
         }
 
         onDraggingChanged: () => {

@@ -7,6 +7,7 @@ import QtQuick.Layouts
 import Qt5Compat.GraphicalEffects
 import Quickshell
 import Quickshell.Hyprland
+import Quickshell.Wayland
 import Quickshell.Services.Notifications
 
 Item { // Notification item area
@@ -41,8 +42,24 @@ Item { // Notification item area
     function activateFromBody() {
         const activateAction = (notificationObject?.actions ?? []).find(action => isActivateAction(action));
         if (!activateAction)
-            return;
-        Notifications.attemptInvokeAction(notificationObject.notificationId, activateAction.identifier);
+            root.focusSourceApp();
+        else
+            Notifications.attemptInvokeAction(notificationObject.notificationId, activateAction.identifier);
+    }
+
+    function focusSourceApp() {
+        const appNameLower = (notificationObject?.appName ?? "").toLowerCase();
+        if (!appNameLower) return;
+        const toplevels = ToplevelManager.toplevels.values;
+        const match = toplevels.find(t => t?.appId?.toLowerCase() === appNameLower)
+            ?? toplevels.find(t => t?.appId?.toLowerCase().startsWith(appNameLower));
+        if (match) {
+            match.activate();
+            GlobalStates.sidebarRightOpen = false;
+        } else {
+            const client = HyprlandData.windowList.find(w => w?.class?.toLowerCase() === appNameLower);
+            if (client?.address) Hyprland.dispatch(`focuswindow address:${client.address}`);
+        }
     }
 
     function destroyWithAnimation(left = false) {
@@ -88,7 +105,11 @@ Item { // Notification item area
             if (mouse.button === Qt.MiddleButton) {
                 root.destroyWithAnimation();
             } else if (mouse.button === Qt.LeftButton) {
-                root.activateFromBody();
+                if (root.expanded) {
+                    root.focusSourceApp();
+                } else {
+                    root.expanded = true;
+                }
             }
         }
 
