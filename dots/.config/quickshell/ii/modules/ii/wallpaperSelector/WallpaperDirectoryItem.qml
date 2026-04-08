@@ -147,7 +147,6 @@ MouseArea {
 
                         property int wallpaperTabIndex: {
                             let index = 0;
-                            if (Config.options.policies.ai !== 0) index++;
                             if (Config.options.policies.translator !== 0) index++;
                             return Config.options.policies.wallpapers !== 0 ? index : -1;
                         }

@@ -486,89 +486,44 @@ ContentPage {
                 }
             }
 
-            ConfigRow {
-                Layout.fillWidth: false
-                
-                ConfigSwitch {
-                    buttonIcon: "wand_stars"
-                    text: Translation.tr("Auto style the cookie clock preset")
-                    checked: Config.options.background.widgets.clock.cookie.aiStyling
-                    onCheckedChanged: {
-                        Config.options.background.widgets.clock.cookie.aiStyling = checked;
-                    }
-                    StyledToolTip {
-                        text: Translation.tr("Uses the preferred AI to categorize the wallpaper then picks a preset based on it.\nYou'll need to set API key on the left sidebar first.\nImages are downscaled for performance, but just to be safe,\ndo not select wallpapers with sensitive information.\nBoth AI models does the same thing, but Gemini has strict quotas.")
-                    }
-                }
-
-                StyledText {
-                    Layout.rightMargin: 6
-                    text: Translation.tr("with")
-                    opacity: Config.options.background.widgets.clock.cookie.aiStyling ? 1 : 0.4
-                }
-
+            ContentSubsection {
+                visible: settingsClock.cookiePresent
+                title: Translation.tr("Dial style")
                 ConfigSelectionArray {
-                    enabled: Config.options.background.widgets.clock.cookie.aiStyling
-                    currentValue: Config.options.background.widgets.clock.cookie.aiStylingModel
+                    currentValue: Config.options.background.widgets.clock.cookie.dialNumberStyle
                     onSelected: newValue => {
-                        Config.options.background.widgets.clock.cookie.aiStylingModel = newValue;
+                        Config.options.background.widgets.clock.cookie.dialNumberStyle = newValue;
+                        if (newValue !== "dots" && newValue !== "full") {
+                            Config.options.background.widgets.clock.cookie.hourMarks = false;
+                        }
+                        if (newValue === "numbers") {
+                            Config.options.background.widgets.clock.cookie.timeIndicators = false;
+                        }
                     }
                     options: [
                         {
-                            displayName: "Gemini",
-                            symbol: "google-gemini-symbolic",
-                            value: "gemini"
+                            displayName: "",
+                            icon: "block",
+                            value: "none"
                         },
                         {
-                            displayName: "OpenRouter",
-                            symbol: "openrouter-symbolic",
-                            value: "openrouter"
+                            displayName: Translation.tr("Dots"),
+                            icon: "graph_6",
+                            value: "dots"
+                        },
+                        {
+                            displayName: Translation.tr("Full"),
+                            icon: "history_toggle_off",
+                            value: "full"
+                        },
+                        {
+                            displayName: Translation.tr("Numbers"),
+                            icon: "counter_1",
+                            value: "numbers"
                         }
                     ]
                 }
             }
-        }
-
-        
-
-        ContentSubsection {
-            visible: settingsClock.cookiePresent
-            title: Translation.tr("Dial style")
-            ConfigSelectionArray {
-                currentValue: Config.options.background.widgets.clock.cookie.dialNumberStyle
-                onSelected: newValue => {
-                    Config.options.background.widgets.clock.cookie.dialNumberStyle = newValue;
-                    if (newValue !== "dots" && newValue !== "full") {
-                        Config.options.background.widgets.clock.cookie.hourMarks = false;
-                    }
-                    if (newValue === "numbers") {
-                        Config.options.background.widgets.clock.cookie.timeIndicators = false;
-                    }
-                }
-                options: [
-                    {
-                        displayName: "",
-                        icon: "block",
-                        value: "none"
-                    },
-                    {
-                        displayName: Translation.tr("Dots"),
-                        icon: "graph_6",
-                        value: "dots"
-                    },
-                    {
-                        displayName: Translation.tr("Full"),
-                        icon: "history_toggle_off",
-                        value: "full"
-                    },
-                    {
-                        displayName: Translation.tr("Numbers"),
-                        icon: "counter_1",
-                        value: "numbers"
-                    }
-                ]
-            }
-        }
 
         ContentSubsection {
             visible: settingsClock.cookiePresent
@@ -1083,7 +1038,10 @@ ContentPage {
                     }
                 }
             }
-
         }
     }
 }
+
+}
+
+

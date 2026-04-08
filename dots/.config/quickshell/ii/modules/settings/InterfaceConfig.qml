@@ -7,25 +7,11 @@ import qs.modules.common.widgets
 import Quickshell
 import Quickshell.Io
 
-ContentPage {
-    id: page
-    readonly property int index: 4
-    property bool register: parent.register ?? false
-    forceWidth: true
-
-    ContentSection {
-        icon: "model_training"
-        title: Translation.tr("AI")
-
-        ConfigSwitch {
-            buttonIcon: "buttons_alt"
-            text: Translation.tr("Show provider and model buttons")
-            checked: Config.options.sidebar.ai.showProviderAndModelButtons
-            onCheckedChanged: {
-                Config.options.sidebar.ai.showProviderAndModelButtons = checked;
-            }
-        }
-    }
+    ContentPage {
+        id: page
+        readonly property int index: 4
+        property bool register: parent.register ?? false
+        forceWidth: true
 
     ContentSection {
         icon: "keyboard"

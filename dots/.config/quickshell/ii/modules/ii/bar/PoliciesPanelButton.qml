@@ -25,14 +25,6 @@ RippleButton {
     }
 
     Connections {
-        target: Ai
-        function onResponseFinished() {
-            if (GlobalStates.sidebarLeftOpen) return;
-            leftSidebarButton.showPing = true;
-        }
-    }
-
-    Connections {
         target: Booru
         function onResponseFinished() {
             if (GlobalStates.sidebarLeftOpen) return;
