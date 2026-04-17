@@ -82,26 +82,9 @@ Singleton {
             property string panelFamily: "ii" // "ii", "waffle"
 
             property JsonObject policies: JsonObject {
-                property int ai: 1 // 0: No | 1: Yes | 2: Local
                 property int weeb: 0 // 0: No | 1: Open | 2: Closet
                 property int wallpapers: 1 // 0: No | 1: Yes  
                 property int translator: 0 // 0: No | 1: Yes
-            }
-
-            property JsonObject ai: JsonObject {
-                property string systemPrompt: "## Style\n- Use casual tone, don't be formal! Make sure you answer precisely without hallucination and prefer bullet points over walls of text. You can have a friendly greeting at the beginning of the conversation, but don't repeat the user's question\n\n## Context (ignore when irrelevant)\n- You are a helpful and inspiring sidebar assistant on a {DISTRO} Linux system\n- Desktop environment: {DE}\n- Current date & time: {DATETIME}\n- Focused app: {WINDOWCLASS}\n\n## Presentation\n- Use Markdown features in your response: \n  - **Bold** text to **highlight keywords** in your response\n  - **Split long information into small sections** with h2 headers and a relevant emoji at the start of it (for example `## 🐧 Linux`). Bullet points are preferred over long paragraphs, unless you're offering writing support or instructed otherwise by the user.\n- Asked to compare different options? You should firstly use a table to compare the main aspects, then elaborate or include relevant comments from online forums *after* the table. Make sure to provide a final recommendation for the user's use case!\n- Use LaTeX formatting for mathematical and scientific notations whenever appropriate. Enclose all LaTeX '$$' delimiters. NEVER generate LaTeX code in a latex block unless the user explicitly asks for it. DO NOT use LaTeX for regular documents (resumes, letters, essays, CVs, etc.).\n"
-                property string tool: "functions" // search, functions, or none
-                property list<var> extraModels: [
-                    //Needed entries in the object: title, value, modelProvider (only for openrouter)
-                    {"openrouter": [
-                        {title: "Gemini 2.5 Flash", value: "gemini-2.5-flash", modelProvider: "google"},
-                    ]},
-                    {"google": [
-                    ]},
-                    {"mistral": [
-                        
-                    ]},
-                ]
             }
 
             property JsonObject appearance: JsonObject {
@@ -175,8 +158,6 @@ Singleton {
                         property string style: "cookie"        // Options: "cookie", "digital"
                         property string styleLocked: "cookie"  // Options: "cookie", "digital"
                         property JsonObject cookie: JsonObject {
-                            property bool aiStyling: false
-                            property string aiStylingModel: "gemini" // Options "gemini", "openrouter"
                             property int sides: 14
                             property string backgroundStyle: "cookie"     // Options: "cookie", "sine", "shape" 
                             property string backgroundShape: "Arch"  // Options: MaterialShape.Shape enum values as string
@@ -642,11 +623,6 @@ Singleton {
                 property JsonObject translator: JsonObject {
                     property bool enable: false
                     property int delay: 300 // Delay before sending request. Reduces (potential) rate limits and lag.
-                }
-                property JsonObject ai: JsonObject {
-                    property bool textFadeIn: false
-                    property bool showProviderAndModelButtons: true
-                    property list<string> showProviders: ["google", "openrouter", "mistral"]
                 }
                 property JsonObject booru: JsonObject {
                     property bool allowNsfw: false

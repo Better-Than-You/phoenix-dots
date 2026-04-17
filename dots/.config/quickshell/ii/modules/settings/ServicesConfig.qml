@@ -4,28 +4,11 @@ import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
 
-ContentPage {
-    id: page
-    readonly property int index: 5
-    property bool register: parent.register ?? false
-    forceWidth: true
-
-    ContentSection {
-        icon: "neurology"
-        title: Translation.tr("AI")
-
-        MaterialTextArea {
-            Layout.fillWidth: true
-            placeholderText: Translation.tr("System prompt")
-            text: Config.options.ai.systemPrompt
-            wrapMode: TextEdit.Wrap
-            onTextChanged: {
-                Qt.callLater(() => {
-                    Config.options.ai.systemPrompt = text;
-                });
-            }
-        }
-    }
+    ContentPage {
+        id: page
+        readonly property int index: 5
+        property bool register: parent.register ?? false
+        forceWidth: true
 
     ContentSection {
         icon: "album"
