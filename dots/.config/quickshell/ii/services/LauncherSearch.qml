@@ -92,6 +92,12 @@ Singleton {
             }
         },
         {
+            action: "restart",
+            execute: () => {
+                Session.reboot();
+            }
+        },
+        {
             action: "shutdown",
             execute: () => {
                 Session.poweroff();
